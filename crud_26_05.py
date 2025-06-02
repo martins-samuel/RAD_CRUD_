@@ -1,11 +1,15 @@
 import os
 import tkinter as tk
 from tkinter import ttk, messagebox
+from PIL import Image, ImageTk
 
 # Caminho para o arquivo onde os dados serão armazenados
 FILE_PATH = r"C:\Users\samue\OneDrive\Documentos\Cursos\Aula_rad\registro.txt"
+# Caminho para a imagem de fundo (use o caminho da sua imagem real)
+BACKGROUND_IMAGE_PATH = r"C:\Users\samue\OneDrive\Documentos\faculdade\quarto-semestre\Aula_rad\ACREATIVE.png" # <<< ATENÇÃO: Use o caminho da sua imagem!
 
-# Função para garantir que o diretório e o arquivo existam
+# --- Funções de Utilitário e CRUD (permanecem as mesmas) ---
+
 def verificar_arquivo():
     diretorio = os.path.dirname(FILE_PATH)
     if not os.path.exists(diretorio):
@@ -14,14 +18,12 @@ def verificar_arquivo():
         with open(FILE_PATH, 'w') as f:
             pass
 
-# Função para salvar os dados no arquivo
 def salvar_dados(tipo, dados):
     verificar_arquivo()
     with open(FILE_PATH, 'a') as f:
         f.write(f"{tipo};{';'.join(dados)}\n")
     messagebox.showinfo("Sucesso", f"{tipo} cadastrado com sucesso!")
 
-# Função para realizar consultas
 def janela_consulta(campo):
     janela = tk.Toplevel()
     janela.title(f"Consulta por {campo.capitalize()}")
@@ -37,12 +39,13 @@ def janela_consulta(campo):
             with open(FILE_PATH, 'r') as f:
                 for linha in f:
                     dados = linha.strip().split(";")
-                    if campo.lower() == "nome" and valor in dados[1].lower():
-                        resultados.append(dados)
-                    elif campo.lower() == "cpf" and valor == dados[5].lower():
-                        resultados.append(dados)
-                    elif campo.lower() == "atividade" and valor in dados[7].lower():
-                        resultados.append(dados)
+                    if len(dados) >= 9:
+                        if campo.lower() == "nome" and valor in dados[1].lower():
+                            resultados.append(dados)
+                        elif campo.lower() == "cpf" and valor == dados[5].lower():
+                            resultados.append(dados)
+                        elif campo.lower() == "atividade" and valor in dados[8].lower(): # Índice 8 para atividades
+                            resultados.append(dados)
         except FileNotFoundError:
             messagebox.showerror("Erro", "Arquivo de registros não encontrado!")
             return
@@ -50,8 +53,29 @@ def janela_consulta(campo):
         for widget in resultados_frame.winfo_children():
             widget.destroy()
         if resultados:
+            tree = ttk.Treeview(resultados_frame, columns=("Tipo", "Nome", "Endereço", "Cidade", "Estado", "CPF", "E-mail", "Sexo", "Atividades", "Observação"), show="headings")
+            tree.pack(fill="both", expand=True)
+
+            tree.heading("Tipo", text="Tipo")
+            tree.heading("Nome", text="Nome")
+            tree.heading("Endereço", text="Endereço")
+            tree.heading("Cidade", text="Cidade")
+            tree.heading("Estado", text="Estado")
+            tree.heading("CPF", text="CPF")
+            tree.heading("E-mail", text="E-mail")
+            tree.heading("Sexo", text="Sexo")
+            tree.heading("Atividades", text="Atividades")
+            tree.heading("Observação", text="Observação")
+
+            tree.column("Tipo", width=70)
+            tree.column("Nome", width=150)
+            tree.column("CPF", width=100)
+            tree.column("Atividades", width=150)
+
             for resultado in resultados:
-                tk.Label(resultados_frame, text=" | ".join(resultado), anchor="w").pack(fill="x", padx=5, pady=2)
+                padded_resultado = resultado + [''] * (10 - len(resultado))
+                tree.insert("", "end", values=padded_resultado[:10])
+
         else:
             tk.Label(resultados_frame, text="Nenhum resultado encontrado.", anchor="w", fg="red").pack(fill="x", padx=5, pady=2)
 
@@ -60,7 +84,6 @@ def janela_consulta(campo):
     ttk.Button(janela, text="Consultar", command=realizar_consulta).grid(row=1, column=0, pady=10)
     ttk.Button(janela, text="Fechar", command=janela.destroy).grid(row=1, column=1, pady=10)
 
-# Função para cadastro de dados
 def janela_cadastro(tipo):
     janela = tk.Toplevel()
     janela.title(f"Cadastro de {tipo}")
@@ -70,118 +93,144 @@ def janela_cadastro(tipo):
     atividades_var = {}
 
     def salvar():
-        nome = nome_entry.get()
-        endereco = endereco_entry.get()
-        cidade = cidade_entry.get()
-        estado = estado_var.get()
-        cpf = cpf_entry.get()
-        email = email_entry.get()
-        sexo = sexo_var.get()
-        atividades = [atividade for atividade, var in atividades_var.items() if var.get()]
+        nome = nome_entry.get().strip()
+        endereco = endereco_entry.get().strip()
+        cidade = cidade_entry.get().strip()
+        estado = estado_var.get().strip()
+        cpf = cpf_entry.get().strip()
+        email = email_entry.get().strip()
+        sexo = sexo_var.get().strip()
+        atividades_selecionadas = [atividade for atividade, var in atividades_var.items() if var.get()]
         observacao = observacao_entry.get("1.0", tk.END).strip()
 
-        if not all([nome, endereco, cidade, estado, cpf, email, sexo, atividades]):
-            messagebox.showerror("Erro", "Preencha todos os campos obrigatórios!")
+        if not all([nome, endereco, cidade, estado, cpf, email, sexo]) or not atividades_selecionadas:
+            messagebox.showerror("Erro", "Preencha todos os campos obrigatórios e selecione pelo menos uma atividade!")
             return
 
-        salvar_dados(tipo, [nome, endereco, cidade, estado, cpf, email, sexo, ", ".join(atividades), observacao])
+        salvar_dados(tipo, [nome, endereco, cidade, estado, cpf, email, sexo, ", ".join(atividades_selecionadas), observacao]) # Corrigido aqui
         janela.destroy()
 
     ttk.Label(janela, text="Nome:").grid(row=0, column=0, sticky=tk.W, pady=5)
-    nome_entry = ttk.Entry(janela)
+    nome_entry = ttk.Entry(janela, width=40)
     nome_entry.grid(row=0, column=1, pady=5)
 
     ttk.Label(janela, text="Endereço:").grid(row=1, column=0, sticky=tk.W, pady=5)
-    endereco_entry = ttk.Entry(janela)
+    endereco_entry = ttk.Entry(janela, width=40)
     endereco_entry.grid(row=1, column=1, pady=5)
 
     ttk.Label(janela, text="Cidade:").grid(row=2, column=0, sticky=tk.W, pady=5)
-    cidade_entry = ttk.Entry(janela)
+    cidade_entry = ttk.Entry(janela, width=40)
     cidade_entry.grid(row=2, column=1, pady=5)
 
     ttk.Label(janela, text="Estado:").grid(row=3, column=0, sticky=tk.W, pady=5)
     estados = ["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"]
-    estado_combo = ttk.Combobox(janela, textvariable=estado_var, values=estados)
+    estado_combo = ttk.Combobox(janela, textvariable=estado_var, values=estados, width=37)
     estado_combo.grid(row=3, column=1, pady=5)
+    estado_combo.set("SP")
 
     ttk.Label(janela, text="CPF:").grid(row=4, column=0, sticky=tk.W, pady=5)
-    cpf_entry = ttk.Entry(janela)
+    cpf_entry = ttk.Entry(janela, width=40)
     cpf_entry.grid(row=4, column=1, pady=5)
 
     ttk.Label(janela, text="E-mail:").grid(row=5, column=0, sticky=tk.W, pady=5)
-    email_entry = ttk.Entry(janela)
+    email_entry = ttk.Entry(janela, width=40)
     email_entry.grid(row=5, column=1, pady=5)
 
     ttk.Label(janela, text="Sexo:").grid(row=6, column=0, sticky=tk.W, pady=5)
     sexo_frame = tk.Frame(janela)
-    sexo_frame.grid(row=6, column=1, pady=5)
-    tk.Radiobutton(sexo_frame, text="Masculino", variable=sexo_var, value="Masculino").pack(side=tk.LEFT)
-    tk.Radiobutton(sexo_frame, text="Feminino", variable=sexo_var, value="Feminino").pack(side=tk.LEFT)
-    tk.Radiobutton(sexo_frame, text="Outros", variable=sexo_var, value="Outros").pack(side=tk.LEFT)
+    sexo_frame.grid(row=6, column=1, pady=5, sticky=tk.W)
+    tk.Radiobutton(sexo_frame, text="Masculino", variable=sexo_var, value="Masculino").pack(side=tk.LEFT, padx=5)
+    tk.Radiobutton(sexo_frame, text="Feminino", variable=sexo_var, value="Feminino").pack(side=tk.LEFT, padx=5)
+    tk.Radiobutton(sexo_frame, text="Outros", variable=sexo_var, value="Outros").pack(side=tk.LEFT, padx=5)
 
     ttk.Label(janela, text="Atividades:").grid(row=7, column=0, sticky=tk.W, pady=5)
     atividades_frame = tk.Frame(janela)
-    atividades_frame.grid(row=7, column=1, pady=5)
-    atividades = ["Musculação", "CrossFit", "Natação", "Dança", "Todos"]
-    for atividade in atividades:
+    atividades_frame.grid(row=7, column=1, pady=5, sticky=tk.W)
+    atividades_opcoes = ["Musculação", "CrossFit", "Natação", "Dança", "Yoga", "Luta"]
+    for atividade in atividades_opcoes:
         atividades_var[atividade] = tk.BooleanVar()
-        tk.Checkbutton(atividades_frame, text=atividade, variable=atividades_var[atividade]).pack(side=tk.LEFT)
+        tk.Checkbutton(atividades_frame, text=atividade, variable=atividades_var[atividade]).pack(side=tk.LEFT, padx=2)
 
     ttk.Label(janela, text="Observação:").grid(row=8, column=0, sticky=tk.W, pady=5)
-    observacao_entry = tk.Text(janela, height=4, width=40)
+    observacao_entry = tk.Text(janela, height=4, width=38)
     observacao_entry.grid(row=8, column=1, pady=5)
 
     ttk.Button(janela, text="Salvar", command=salvar).grid(row=9, column=0, pady=10)
     ttk.Button(janela, text="Cancelar", command=janela.destroy).grid(row=9, column=1, pady=10)
 
-# Funções administrativas
-
 def alterar_registro():
     def buscar():
-        cpf = cpf_entry.get().strip()
-        if not cpf:
+        cpf_pesquisa = cpf_entry.get().strip()
+        if not cpf_pesquisa:
             messagebox.showerror("Erro", "Digite um CPF para buscar.")
             return
 
         with open(FILE_PATH, 'r') as f:
             linhas = f.readlines()
 
+        encontrado = False
         for linha in linhas:
             dados = linha.strip().split(';')
-            if dados[5] == cpf:
+            if len(dados) >= 10 and dados[5] == cpf_pesquisa:
                 preencher_campos(dados)
-                return
+                encontrado = True
+                break
 
-        messagebox.showinfo("Não encontrado", "Cadastro não localizado.")
+        if not encontrado:
+            messagebox.showinfo("Não encontrado", "Cadastro não localizado.")
 
     def salvar():
-        novo_dado = [tipo_var.get(), nome.get(), endereco.get(), cidade.get(), estado.get(), cpf.get(), email.get(), sexo.get(), atividades.get(), observacao.get("1.0", tk.END).strip()]
+        _tipo = tipo_var.get().strip()
+        _nome = nome.get().strip()
+        _endereco = endereco.get().strip()
+        _cidade = cidade.get().strip()
+        _estado = estado.get().strip()
+        _cpf = cpf.get().strip()
+        _email = email.get().strip()
+        _sexo = sexo.get().strip()
+        _atividades = atividades.get().strip()
+        _observacao = observacao.get("1.0", tk.END).strip()
+
+        if not all([_tipo, _nome, _endereco, _cidade, _estado, _cpf, _email, _sexo, _atividades]):
+            messagebox.showerror("Erro", "Todos os campos devem ser preenchidos para alteração.")
+            return
+
+        novo_dado = [_tipo, _nome, _endereco, _cidade, _estado, _cpf, _email, _sexo, _atividades, _observacao]
+
         with open(FILE_PATH, 'r') as f:
             linhas = f.readlines()
 
         with open(FILE_PATH, 'w') as f:
+            alterado = False
             for linha in linhas:
                 dados = linha.strip().split(';')
-                if dados[5] == cpf.get():
+                if len(dados) >= 6 and dados[5] == _cpf:
                     f.write(";".join(novo_dado) + "\n")
+                    alterado = True
                 else:
                     f.write(linha)
-
-        messagebox.showinfo("Alterado", "Cadastro alterado com sucesso.")
-        janela.destroy()
+        
+        if alterado:
+            messagebox.showinfo("Alterado", "Cadastro alterado com sucesso.")
+            janela.destroy()
+        else:
+            messagebox.showerror("Erro", "Cadastro não encontrado para alteração.")
 
     def preencher_campos(dados):
-        tipo_var.set(dados[0])
-        nome.set(dados[1])
-        endereco.set(dados[2])
-        cidade.set(dados[3])
-        estado.set(dados[4])
-        cpf.set(dados[5])
-        email.set(dados[6])
-        sexo.set(dados[7])
-        atividades.set(dados[8])
-        observacao.delete("1.0", tk.END)
-        observacao.insert(tk.END, dados[9])
+        if len(dados) >= 10:
+            tipo_var.set(dados[0])
+            nome.set(dados[1])
+            endereco.set(dados[2])
+            cidade.set(dados[3])
+            estado.set(dados[4])
+            cpf.set(dados[5])
+            email.set(dados[6])
+            sexo.set(dados[7])
+            atividades.set(dados[8])
+            observacao.delete("1.0", tk.END)
+            observacao.insert(tk.END, dados[9])
+        else:
+            messagebox.showerror("Erro", "Dados do registro estão incompletos no arquivo.")
 
     janela = tk.Toplevel()
     janela.title("Alterar Cadastro")
@@ -196,41 +245,47 @@ def alterar_registro():
     sexo = tk.StringVar()
     atividades = tk.StringVar()
 
-    ttk.Label(janela, text="CPF:").grid(row=0, column=0)
-    cpf_entry = ttk.Entry(janela, textvariable=cpf)
-    cpf_entry.grid(row=0, column=1)
-    ttk.Button(janela, text="Buscar", command=buscar).grid(row=0, column=2)
+    ttk.Label(janela, text="CPF para Buscar:").grid(row=0, column=0, sticky=tk.W, pady=5)
+    cpf_entry = ttk.Entry(janela, textvariable=cpf, width=40)
+    cpf_entry.grid(row=0, column=1, pady=5)
+    ttk.Button(janela, text="Buscar", command=buscar).grid(row=0, column=2, pady=5, padx=5)
 
-    campos = [("Tipo", tipo_var), ("Nome", nome), ("Endereço", endereco), ("Cidade", cidade), ("Estado", estado), ("E-mail", email), ("Sexo", sexo), ("Atividades", atividades)]
+    campos = [("Tipo", tipo_var), ("Nome", nome), ("Endereço", endereco), ("Cidade", cidade),
+              ("Estado", estado), ("E-mail", email), ("Sexo", sexo), ("Atividades", atividades)]
+    
     for i, (label, var) in enumerate(campos, start=1):
-        ttk.Label(janela, text=f"{label}:").grid(row=i, column=0)
-        ttk.Entry(janela, textvariable=var).grid(row=i, column=1, columnspan=2)
+        ttk.Label(janela, text=f"{label}:").grid(row=i, column=0, sticky=tk.W, pady=2)
+        ttk.Entry(janela, textvariable=var, width=40).grid(row=i, column=1, columnspan=2, pady=2)
 
-    ttk.Label(janela, text="Observação:").grid(row=9, column=0)
-    observacao = tk.Text(janela, height=4, width=40)
-    observacao.grid(row=9, column=1, columnspan=2)
+    ttk.Label(janela, text="Observação:").grid(row=9, column=0, sticky=tk.W, pady=2)
+    observacao = tk.Text(janela, height=4, width=38)
+    observacao.grid(row=9, column=1, columnspan=2, pady=2)
 
     ttk.Button(janela, text="Salvar Alterações", command=salvar).grid(row=10, column=1, pady=10)
     ttk.Button(janela, text="Cancelar", command=janela.destroy).grid(row=10, column=2, pady=10)
 
 def excluir_cadastro():
     def excluir():
-        cpf = cpf_entry.get().strip()
-        if not cpf:
+        cpf_excluir = cpf_entry.get().strip()
+        if not cpf_excluir:
             messagebox.showerror("Erro", "Digite um CPF para excluir.")
             return
 
-        with open(FILE_PATH, 'r') as f:
-            linhas = f.readlines()
+        try:
+            with open(FILE_PATH, 'r') as f:
+                linhas = f.readlines()
 
-        with open(FILE_PATH, 'w') as f:
-            excluido = False
-            for linha in linhas:
-                dados = linha.strip().split(';')
-                if dados[5] != cpf:
-                    f.write(linha)
-                else:
-                    excluido = True
+            with open(FILE_PATH, 'w') as f:
+                excluido = False
+                for linha in linhas:
+                    dados = linha.strip().split(';')
+                    if len(dados) >= 6 and dados[5] != cpf_excluir:
+                        f.write(linha)
+                    elif len(dados) >= 6 and dados[5] == cpf_excluir:
+                        excluido = True
+        except FileNotFoundError:
+            messagebox.showerror("Erro", "Arquivo de registros não encontrado.")
+            return
 
         if excluido:
             messagebox.showinfo("Sucesso", "Cadastro excluído com sucesso.")
@@ -241,9 +296,9 @@ def excluir_cadastro():
     janela = tk.Toplevel()
     janela.title("Excluir Cadastro")
 
-    ttk.Label(janela, text="Digite o CPF para excluir:").grid(row=0, column=0)
-    cpf_entry = ttk.Entry(janela)
-    cpf_entry.grid(row=0, column=1)
+    ttk.Label(janela, text="Digite o CPF para excluir:").grid(row=0, column=0, sticky=tk.W, pady=5)
+    cpf_entry = ttk.Entry(janela, width=40)
+    cpf_entry.grid(row=0, column=1, pady=5)
     ttk.Button(janela, text="Excluir", command=excluir).grid(row=1, column=0, pady=10)
     ttk.Button(janela, text="Cancelar", command=janela.destroy).grid(row=1, column=1, pady=10)
 
@@ -255,58 +310,127 @@ def gerar_relatorios():
         with open(FILE_PATH, 'r') as f:
             for linha in f:
                 dados = linha.strip().split(';')
-                tipo = dados[0]
-                tipos[tipo] = tipos.get(tipo, 0) + 1
+                if len(dados) >= 9:
+                    tipo = dados[0]
+                    tipos[tipo] = tipos.get(tipo, 0) + 1
 
-                for atv in dados[8].split(', '):
-                    atividades[atv] = atividades.get(atv, 0) + 1
+                    for atv in dados[8].split(', '):
+                        if atv:
+                            atividades[atv] = atividades.get(atv, 0) + 1
     except FileNotFoundError:
         messagebox.showerror("Erro", "Arquivo de registros não encontrado!")
         return
 
     texto = "Relatório de Cadastros:\n\n"
     for tipo, qt in tipos.items():
-        texto += f"{tipo}: {qt}\n"
+        texto += f"- {tipo}: {qt} registros\n"
 
     texto += "\nRelatório por Atividades:\n"
     for atv, qt in atividades.items():
-        texto += f"{atv}: {qt}\n"
+        texto += f"- {atv}: {qt} ocorrências\n"
 
     messagebox.showinfo("Relatórios", texto)
 
-# Menu principal
+# --- NOVA FUNÇÃO para o botão "ENTRAR" ---
+def janela_entrar():
+    janela_login = tk.Toplevel()
+    janela_login.title("Área de Acesso")
+
+    # Frame para centralizar o conteúdo
+    content_frame = ttk.Frame(janela_login, padding="20 20 20 20")
+    content_frame.pack(expand=True, fill="both")
+
+    ttk.Label(content_frame, text="Acesso Restrito", font=("Arial", 14, "bold")).pack(pady=15)
+
+    # Botões para as opções de Consulta e Administrativo
+    ttk.Button(content_frame, text="Consultar por Nome", command=lambda: janela_consulta("nome")).pack(pady=5, ipadx=10, ipady=5)
+    ttk.Button(content_frame, text="Consultar por CPF", command=lambda: janela_consulta("cpf")).pack(pady=5, ipadx=10, ipady=5)
+    ttk.Button(content_frame, text="Consultar por Atividade", command=lambda: janela_consulta("atividade")).pack(pady=5, ipadx=10, ipady=5)
+    
+    ttk.Separator(content_frame, orient="horizontal").pack(fill="x", pady=10)
+
+    ttk.Button(content_frame, text="Alterar Registro", command=alterar_registro).pack(pady=5, ipadx=10, ipady=5)
+    ttk.Button(content_frame, text="Excluir Cadastro", command=excluir_cadastro).pack(pady=5, ipadx=10, ipady=5)
+    ttk.Button(content_frame, text="Gerar Relatórios", command=gerar_relatorios).pack(pady=5, ipadx=10, ipady=5) # Corrigido o nome da função aqui
+
+    ttk.Button(content_frame, text="Fechar", command=janela_login.destroy).pack(pady=20)
+
+
+# --- Menu principal (agora com os botões personalizados) ---
 def menu_principal():
     janela = tk.Tk()
-    janela.title("Sistema de Cadastro")
+    janela.title("ACREATIVE GYM ACADEMIA")
 
-    menu = tk.Menu(janela)
-    janela.config(menu=menu)
+    # Configurar estilo dos botões personalizados
+    style = ttk.Style()
+    style.configure('YellowButton.TButton', 
+                    background='#FFD700', # Dourado/Amarelo
+                    foreground='black', 
+                    font=('Arial', 14, 'bold'),
+                    padding=10,
+                    relief='raised',
+                    borderwidth=3)
+    style.map('YellowButton.TButton', 
+              background=[('active', '#FFEB3B')])
 
-    cadastro_menu = tk.Menu(menu, tearoff=0)
-    consulta_menu = tk.Menu(menu, tearoff=0)
-    administrativo_menu = tk.Menu(menu, tearoff=0)
+    style.configure('DarkButton.TButton', 
+                    background='#333333', # Quase preto
+                    foreground='white', 
+                    font=('Arial', 12, 'bold'),
+                    padding=8,
+                    relief='raised',
+                    borderwidth=2)
+    style.map('DarkButton.TButton', 
+              background=[('active', '#555555')])
 
-    menu.add_cascade(label="Cadastro", menu=cadastro_menu)
-    menu.add_cascade(label="Consulta", menu=consulta_menu)
-    menu.add_cascade(label="Administrativo", menu=administrativo_menu)
 
-    cadastro_menu.add_command(label="Aluno", command=lambda: janela_cadastro("Aluno"))
-    cadastro_menu.add_command(label="Funcionário", command=lambda: janela_cadastro("Funcionário"))
-    cadastro_menu.add_command(label="Professor", command=lambda: janela_cadastro("Professor"))
+    # Tenta carregar a imagem de fundo
+    try:
+        img = Image.open(BACKGROUND_IMAGE_PATH)
+        janela_width = 800
+        janela_height = 600
+        img = img.resize((janela_width, janela_height), Image.LANCZOS)
+        
+        bg_image = ImageTk.PhotoImage(img)
 
-    consulta_menu.add_command(label="Por Nome", command=lambda: janela_consulta("nome"))
-    consulta_menu.add_command(label="Por CPF", command=lambda: janela_consulta("cpf"))
-    consulta_menu.add_command(label="Por Atividade", command=lambda: janela_consulta("atividade"))
+        background_label = tk.Label(janela, image=bg_image)
+        background_label.place(x=0, y=0, relwidth=1, relheight=1)
+        background_label.image = bg_image # Mantém uma referência
+        
+        janela.geometry(f"{janela_width}x{janela_height}")
+        janela.resizable(False, False) # Impede redimensionamento para manter imagem
 
-    administrativo_menu.add_command(label="Alterar Registro", command=alterar_registro)
-    administrativo_menu.add_command(label="Excluir Cadastro", command=excluir_cadastro)
-    administrativo_menu.add_command(label="Gerar Relatórios", command=gerar_relatorios)
+    except FileNotFoundError:
+        messagebox.showwarning("Aviso", f"Imagem de fundo não encontrada em: {BACKGROUND_IMAGE_PATH}. O sistema continuará sem ela.")
+        janela.geometry("800x600")
+    except Exception as e:
+        messagebox.showerror("Erro ao carregar imagem", f"Ocorreu um erro ao carregar a imagem de fundo: {e}")
+        janela.geometry("800x600")
 
-    ttk.Label(janela, text="Bem-vindo ao Sistema de Cadastro").pack(pady=20)
-    ttk.Button(janela, text="Sair", command=janela.destroy).pack(pady=10)
+    # Frame para os elementos principais da tela de boas-vindas
+    # SEM bg='transparent' aqui. O Tkinter pode não desenhar o frame, permitindo a imagem de fundo.
+    main_content_frame = tk.Frame(janela) # Removido bg='transparent'
+    main_content_frame.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
 
+    # Logo/Título "ACREATIVE GYM ACADEMIA" - Definir bg para a cor que você quer (ex: a cor da imagem) ou 'transparent'
+    # 'transparent' aqui (no Label) pode funcionar sobre outro Label (o background_label)
+    tk.Label(main_content_frame, text="ACREATIVE", font=("Arial", 48, "bold"), fg="white", bg=janela.cget('bg')).pack(pady=(0, 5)) # Use a cor de fundo padrão da janela
+    tk.Label(main_content_frame, text="GYM ACADEMIA", font=("Arial", 16, "bold"), fg="yellow", bg=janela.cget('bg')).pack(pady=(0, 30)) # Use a cor de fundo padrão da janela
+
+    # Botões personalizados
+    ttk.Button(main_content_frame, text="INSCREVA-SE HOJE", 
+               command=lambda: janela_cadastro("Aluno"), 
+               style='YellowButton.TButton',
+               width=25).pack(pady=10)
+
+    ttk.Button(main_content_frame, text="ENTRAR", 
+               command=janela_entrar,
+               style='DarkButton.TButton',
+               width=20).pack(pady=5)
+    
     janela.mainloop()
 
 # Executar o sistema
 if __name__ == "__main__":
+    verificar_arquivo()
     menu_principal()
